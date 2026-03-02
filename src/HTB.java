@@ -2,60 +2,41 @@ import java.util.*;
 
 public class HTB {
 
-    private static final int N = 5; // 5-grams
+    private Map<String, Integer> pageViews = new HashMap<>();
+    private Map<String, Set<String>> uniqueVisitors = new HashMap<>();
+    private Map<String, Integer> trafficSources = new HashMap<>();
 
-    // ngram -> set of document IDs
-    private Map<String, Set<String>> index = new HashMap<>();
+    public void processEvent(String url, String userId, String source) {
 
-    // extract n-grams
-    private List<String> extractNGrams(String text) {
-        String[] words = text.toLowerCase().split("\\s+");
-        List<String> grams = new ArrayList<>();
+        pageViews.put(url, pageViews.getOrDefault(url, 0) + 1);
 
-        for (int i = 0; i <= words.length - N; i++) {
-            String gram = String.join(" ", Arrays.copyOfRange(words, i, i + N));
-            grams.add(gram);
-        }
-        return grams;
+        uniqueVisitors.computeIfAbsent(url, k -> new HashSet<>()).add(userId);
+
+        trafficSources.put(source, trafficSources.getOrDefault(source, 0) + 1);
     }
 
-    // add document to database
-    public void addDocument(String docId, String text) {
-        for (String gram : extractNGrams(text)) {
-            index.computeIfAbsent(gram, k -> new HashSet<>()).add(docId);
-        }
-    }
+    public void showDashboard() {
 
-    // analyze similarity
-    public void analyze(String docId, String text) {
-        List<String> grams = extractNGrams(text);
-        Map<String, Integer> matchCount = new HashMap<>();
+        System.out.println("\nTop Pages:");
+        pageViews.entrySet().stream()
+                .sorted((a,b)->b.getValue()-a.getValue())
+                .limit(10)
+                .forEach(e -> System.out.println(
+                        e.getKey() + " - " + e.getValue() +
+                                " views (" + uniqueVisitors.get(e.getKey()).size() + " unique)"
+                ));
 
-        for (String gram : grams) {
-            if (index.containsKey(gram)) {
-                for (String existingDoc : index.get(gram)) {
-                    matchCount.put(existingDoc,
-                            matchCount.getOrDefault(existingDoc, 0) + 1);
-                }
-            }
-        }
-
-        for (String doc : matchCount.keySet()) {
-            double similarity = (matchCount.get(doc) * 100.0) / grams.size();
-            System.out.println("Match with " + doc + " → " + similarity + "%");
-        }
+        System.out.println("\nTraffic Sources:");
+        trafficSources.forEach((k,v) -> System.out.println(k + " : " + v));
     }
 
     public static void main(String[] args) {
-        HTB detector = new HTB();
+        HTB analytics = new HTB();
 
-        detector.addDocument("essay_089",
-                "data structures and algorithms are important for computer science");
+        analytics.processEvent("/breaking-news","u1","google");
+        analytics.processEvent("/breaking-news","u2","facebook");
+        analytics.processEvent("/sports","u3","google");
 
-        detector.addDocument("essay_092",
-                "data structures and algorithms are very important in computer science");
-
-        detector.analyze("essay_123",
-                "data structures and algorithms are important in computer science");
+        analytics.showDashboard();
     }
 }
