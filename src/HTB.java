@@ -2,44 +2,26 @@ import java.util.*;
 
 public class HTB {
 
-    class TokenBucket {
-        int tokens;
-        int maxTokens;
-        long lastRefill;
+    private Map<String,Integer> freq = new HashMap<>();
 
-        TokenBucket(int max) {
-            maxTokens = max;
-            tokens = max;
-            lastRefill = System.currentTimeMillis();
-        }
+    public void addQuery(String q){
+        freq.put(q, freq.getOrDefault(q,0)+1);
     }
 
-    private Map<String, TokenBucket> clients = new HashMap<>();
-    private static final int LIMIT = 5; // demo limit
-
-    public boolean allowRequest(String clientId) {
-
-        clients.putIfAbsent(clientId, new TokenBucket(LIMIT));
-        TokenBucket bucket = clients.get(clientId);
-
-        long now = System.currentTimeMillis();
-
-        if (now - bucket.lastRefill > 60000) { // refill every minute
-            bucket.tokens = bucket.maxTokens;
-            bucket.lastRefill = now;
-        }
-
-        if (bucket.tokens > 0) {
-            bucket.tokens--;
-            return true;
-        }
-        return false;
+    public List<String> search(String prefix){
+        return freq.keySet().stream()
+                .filter(q -> q.startsWith(prefix))
+                .sorted((a,b)->freq.get(b)-freq.get(a))
+                .limit(5)
+                .toList();
     }
 
-    public static void main(String[] args) {
-        HTB limiter = new HTB();
+    public static void main(String[] args){
+        HTB ac = new HTB();
+        ac.addQuery("java tutorial");
+        ac.addQuery("javascript");
+        ac.addQuery("java download");
 
-        for(int i=1;i<=7;i++)
-            System.out.println("Request "+i+" → "+limiter.allowRequest("abc"));
+        System.out.println(ac.search("jav"));
     }
 }
