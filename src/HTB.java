@@ -2,41 +2,44 @@ import java.util.*;
 
 public class HTB {
 
-    private Map<String, Integer> pageViews = new HashMap<>();
-    private Map<String, Set<String>> uniqueVisitors = new HashMap<>();
-    private Map<String, Integer> trafficSources = new HashMap<>();
+    class TokenBucket {
+        int tokens;
+        int maxTokens;
+        long lastRefill;
 
-    public void processEvent(String url, String userId, String source) {
-
-        pageViews.put(url, pageViews.getOrDefault(url, 0) + 1);
-
-        uniqueVisitors.computeIfAbsent(url, k -> new HashSet<>()).add(userId);
-
-        trafficSources.put(source, trafficSources.getOrDefault(source, 0) + 1);
+        TokenBucket(int max) {
+            maxTokens = max;
+            tokens = max;
+            lastRefill = System.currentTimeMillis();
+        }
     }
 
-    public void showDashboard() {
+    private Map<String, TokenBucket> clients = new HashMap<>();
+    private static final int LIMIT = 5; // demo limit
 
-        System.out.println("\nTop Pages:");
-        pageViews.entrySet().stream()
-                .sorted((a,b)->b.getValue()-a.getValue())
-                .limit(10)
-                .forEach(e -> System.out.println(
-                        e.getKey() + " - " + e.getValue() +
-                                " views (" + uniqueVisitors.get(e.getKey()).size() + " unique)"
-                ));
+    public boolean allowRequest(String clientId) {
 
-        System.out.println("\nTraffic Sources:");
-        trafficSources.forEach((k,v) -> System.out.println(k + " : " + v));
+        clients.putIfAbsent(clientId, new TokenBucket(LIMIT));
+        TokenBucket bucket = clients.get(clientId);
+
+        long now = System.currentTimeMillis();
+
+        if (now - bucket.lastRefill > 60000) { // refill every minute
+            bucket.tokens = bucket.maxTokens;
+            bucket.lastRefill = now;
+        }
+
+        if (bucket.tokens > 0) {
+            bucket.tokens--;
+            return true;
+        }
+        return false;
     }
 
     public static void main(String[] args) {
-        HTB analytics = new HTB();
+        HTB limiter = new HTB();
 
-        analytics.processEvent("/breaking-news","u1","google");
-        analytics.processEvent("/breaking-news","u2","facebook");
-        analytics.processEvent("/sports","u3","google");
-
-        analytics.showDashboard();
+        for(int i=1;i<=7;i++)
+            System.out.println("Request "+i+" → "+limiter.allowRequest("abc"));
     }
 }
