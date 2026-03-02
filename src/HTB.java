@@ -2,28 +2,20 @@ import java.util.*;
 
 public class HTB {
 
-    String[] lot = new String[10];
+    public static void twoSum(int[] arr, int target){
+        Map<Integer,Integer> map = new HashMap<>();
 
-    private int hash(String plate){
-        return Math.abs(plate.hashCode()) % lot.length;
-    }
-
-    public void park(String plate){
-        int idx = hash(plate);
-        int probes = 0;
-
-        while(lot[idx] != null){
-            idx = (idx+1) % lot.length;
-            probes++;
+        for(int num: arr){
+            int comp = target - num;
+            if(map.containsKey(comp)){
+                System.out.println("Pair: "+num+" + "+comp);
+            }
+            map.put(num,1);
         }
-
-        lot[idx] = plate;
-        System.out.println(plate+" parked at "+idx+" probes:"+probes);
     }
 
     public static void main(String[] args){
-        HTB p = new HTB();
-        p.park("ABC123");
-        p.park("ABC124");
+        int[] tx = {500,300,200,700};
+        twoSum(tx,500);
     }
 }
