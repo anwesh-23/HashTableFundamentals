@@ -2,107 +2,60 @@ import java.util.*;
 
 public class HTB {
 
-    // Maximum cache size (for LRU eviction)
-    private static final int MAX_CACHE_SIZE = 5;
+    private static final int N = 5; // 5-grams
 
-    // Cache: domain -> entry
-    private LinkedHashMap<String, DNSEntry> cache;
+    // ngram -> set of document IDs
+    private Map<String, Set<String>> index = new HashMap<>();
 
-    // statistics
-    private int hits = 0;
-    private int misses = 0;
+    // extract n-grams
+    private List<String> extractNGrams(String text) {
+        String[] words = text.toLowerCase().split("\\s+");
+        List<String> grams = new ArrayList<>();
 
-    public HTB() {
-
-        // accessOrder=true enables LRU eviction
-        cache = new LinkedHashMap<String, DNSEntry>(16, 0.75f, true) {
-            protected boolean removeEldestEntry(Map.Entry<String, DNSEntry> eldest) {
-                return size() > MAX_CACHE_SIZE;
-            }
-        };
+        for (int i = 0; i <= words.length - N; i++) {
+            String gram = String.join(" ", Arrays.copyOfRange(words, i, i + N));
+            grams.add(gram);
+        }
+        return grams;
     }
 
-    // DNS Entry class
-    static class DNSEntry {
-        String domain;
-        String ipAddress;
-        long expiryTime;
-
-        DNSEntry(String domain, String ipAddress, long ttlSeconds) {
-            this.domain = domain;
-            this.ipAddress = ipAddress;
-            this.expiryTime = System.currentTimeMillis() + ttlSeconds * 1000;
-        }
-
-        boolean isExpired() {
-            return System.currentTimeMillis() > expiryTime;
+    // add document to database
+    public void addDocument(String docId, String text) {
+        for (String gram : extractNGrams(text)) {
+            index.computeIfAbsent(gram, k -> new HashSet<>()).add(docId);
         }
     }
 
-    // resolve domain
-    public String resolve(String domain) {
+    // analyze similarity
+    public void analyze(String docId, String text) {
+        List<String> grams = extractNGrams(text);
+        Map<String, Integer> matchCount = new HashMap<>();
 
-        long start = System.nanoTime();
-
-        // check cache
-        if (cache.containsKey(domain)) {
-            DNSEntry entry = cache.get(domain);
-
-            if (!entry.isExpired()) {
-                hits++;
-                long time = System.nanoTime() - start;
-                return "Cache HIT → " + entry.ipAddress +
-                        " (" + time / 1_000_000.0 + " ms)";
-            } else {
-                cache.remove(domain);
-                System.out.println("Cache EXPIRED for " + domain);
+        for (String gram : grams) {
+            if (index.containsKey(gram)) {
+                for (String existingDoc : index.get(gram)) {
+                    matchCount.put(existingDoc,
+                            matchCount.getOrDefault(existingDoc, 0) + 1);
+                }
             }
         }
 
-        // cache miss
-        misses++;
-        String ip = queryUpstreamDNS(domain);
-
-        // store in cache with TTL 5 seconds (demo)
-        cache.put(domain, new DNSEntry(domain, ip, 5));
-
-        return "Cache MISS → Query upstream → " + ip;
+        for (String doc : matchCount.keySet()) {
+            double similarity = (matchCount.get(doc) * 100.0) / grams.size();
+            System.out.println("Match with " + doc + " → " + similarity + "%");
+        }
     }
 
-    // simulate upstream DNS lookup
-    private String queryUpstreamDNS(String domain) {
-        try { Thread.sleep(100); } catch (Exception ignored) {}
-        return "172.217." + (int)(Math.random()*100) + "." + (int)(Math.random()*255);
-    }
+    public static void main(String[] args) {
+        HTB detector = new HTB();
 
-    // cleanup expired entries
-    public void cleanup() {
-        cache.entrySet().removeIf(entry -> entry.getValue().isExpired());
-    }
+        detector.addDocument("essay_089",
+                "data structures and algorithms are important for computer science");
 
-    // statistics
-    public void getCacheStats() {
-        int total = hits + misses;
-        double hitRate = total == 0 ? 0 : (hits * 100.0 / total);
+        detector.addDocument("essay_092",
+                "data structures and algorithms are very important in computer science");
 
-        System.out.println("\nCache Stats:");
-        System.out.println("Hits: " + hits);
-        System.out.println("Misses: " + misses);
-        System.out.println("Hit Rate: " + String.format("%.2f", hitRate) + "%");
-    }
-
-    public static void main(String[] args) throws InterruptedException {
-
-        HTB dnsCache = new HTB();
-
-        System.out.println(dnsCache.resolve("google.com"));
-        System.out.println(dnsCache.resolve("google.com"));
-
-        // wait to expire
-        Thread.sleep(6000);
-
-        System.out.println(dnsCache.resolve("google.com"));
-
-        dnsCache.getCacheStats();
+        detector.analyze("essay_123",
+                "data structures and algorithms are important in computer science");
     }
 }
