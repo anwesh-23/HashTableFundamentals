@@ -2,26 +2,28 @@ import java.util.*;
 
 public class HTB {
 
-    private Map<String,Integer> freq = new HashMap<>();
+    String[] lot = new String[10];
 
-    public void addQuery(String q){
-        freq.put(q, freq.getOrDefault(q,0)+1);
+    private int hash(String plate){
+        return Math.abs(plate.hashCode()) % lot.length;
     }
 
-    public List<String> search(String prefix){
-        return freq.keySet().stream()
-                .filter(q -> q.startsWith(prefix))
-                .sorted((a,b)->freq.get(b)-freq.get(a))
-                .limit(5)
-                .toList();
+    public void park(String plate){
+        int idx = hash(plate);
+        int probes = 0;
+
+        while(lot[idx] != null){
+            idx = (idx+1) % lot.length;
+            probes++;
+        }
+
+        lot[idx] = plate;
+        System.out.println(plate+" parked at "+idx+" probes:"+probes);
     }
 
     public static void main(String[] args){
-        HTB ac = new HTB();
-        ac.addQuery("java tutorial");
-        ac.addQuery("javascript");
-        ac.addQuery("java download");
-
-        System.out.println(ac.search("jav"));
+        HTB p = new HTB();
+        p.park("ABC123");
+        p.park("ABC124");
     }
 }
